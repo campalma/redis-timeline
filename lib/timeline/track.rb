@@ -82,7 +82,7 @@ module Timeline::Track
     def add_activity_to_targets(activity_item)
       activity_item[:verb] = "inv_"+ activity_item[:verb].to_s
       activity_item[:verb] = activity_item[:verb].to_sym
-      activity_item[:target] = options_for(@actor)
+      activity_item[:target] = [options_for(@actor)]
       @target.each do |t|
         if t != @actor
           activity_item[:actor] = options_for(t)
