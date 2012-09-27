@@ -2,6 +2,9 @@ module Timeline::Track
   extend ActiveSupport::Concern
 
   module ClassMethods
+
+    require "set"
+
     def track(name, options={})
       @name = name
       @callback = options.delete :on
@@ -12,10 +15,11 @@ module Timeline::Track
       @target = options.delete :target
       @followers = options.delete :followers
       @followers ||= :followers
+      @extra_fields = options.delete :extra_fields
       @mentionable = options.delete :mentionable
 
       method_name = "track_#{@name}_after_#{@callback}".to_sym
-      define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, verb: name, mentionable: @mentionable
+      define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, extra_fields: @extra_fields, verb: name, mentionable: @mentionable
 
       send "after_#{@callback}".to_sym, method_name, if: options.delete(:if)
     end
@@ -26,9 +30,12 @@ module Timeline::Track
           @actor = send(options[:actor])
           @fields_for = {}
           @object = set_object(options[:object])
-          @target = !options[:target].nil? ? send(options[:target].to_sym) : nil
-          @extra_fields ||= nil
-          @followers = @actor.send(options[:followers].to_sym)
+          @target = send(options[:target].to_sym)
+          unless(@target.respond_to?(:length))
+            @target = [@target]
+          end
+          @extra_fields = options[:extra_fields]
+          @followers = send(options[:followers].to_sym)
           @mentionable = options[:mentionable]
           add_activity activity(verb: options[:verb])
         end
@@ -41,7 +48,7 @@ module Timeline::Track
         verb: options[:verb],
         actor: options_for(@actor),
         object: options_for(@object),
-        target: options_for(@target),
+        target: options_for_targets(@target),
         created_at: Time.now
       }
     end
@@ -52,18 +59,37 @@ module Timeline::Track
       add_activity_by_user(activity_item[:actor][:id], activity_item)
       add_mentions(activity_item)
       add_activity_to_followers(activity_item) if @followers.any?
+      add_activity_to_targets(activity_item) if @target.any?
     end
 
     def add_activity_by_user(user_id, activity_item)
-      redis_add "user:id:#{user_id}:posts", activity_item
+      redis_add "user:id:#{user_id}:profile", activity_item
     end
 
     def add_activity_to_user(user_id, activity_item)
-      redis_add "user:id:#{user_id}:activity", activity_item
+      redis_add "user:id:#{user_id}:network", activity_item
     end
 
     def add_activity_to_followers(activity_item)
-      @followers.each { |follower| add_activity_to_user(follower.id, activity_item) }
+      @followers = @followers.to_set - @target.to_set
+      @followers.each do |follower|
+        if follower != @actor
+          add_activity_to_user(follower.id, activity_item)
+        end
+      end
+    end
+
+    def add_activity_to_targets(activity_item)
+      activity_item[:verb] = "inv_"+ activity_item[:verb].to_s
+      activity_item[:verb] = activity_item[:verb].to_sym
+      activity_item[:target] = options_for(@actor)
+      @target.each do |t|
+        if t != @actor
+          activity_item[:actor] = options_for(t)
+          add_activity_by_user(t.id, activity_item)
+          add_activity_to_user(t.id, activity_item)
+        end
+      end
     end
 
     def add_mentions(activity_item)
@@ -80,22 +106,34 @@ module Timeline::Track
     end
 
     def extra_fields_for(object)
-      return {} unless @fields_for.has_key?(object.class.to_s.downcase.to_sym)
-      @fields_for[object.class.to_s.downcase.to_sym].inject({}) do |sum, method|
-        sum[method.to_sym] = @object.send(method.to_sym)
-        sum
+      if @extra_fields.nil?
+        return {}
+      else
+        extra = {}
+        extra[@extra_fields.to_sym] = send(@extra_fields.to_sym)
+        return extra
       end
     end
 
-    def options_for(target)
-      if !target.nil?
+    def options_for(timeline_object)
+      if !timeline_object.nil?
         {
-          id: target.id,
-          class: target.class.to_s,
-          display_name: target.to_s
-        }.merge(extra_fields_for(target))
+          id: timeline_object.id,
+          class: timeline_object.class.to_s,
+          display_name: timeline_object.to_s
+        }.merge(extra_fields_for(timeline_object))
       else
         nil
+      end
+    end
+
+    def options_for_targets(targets)
+      targets.collect do |t|
+        {
+          id: t.id,
+          class: t.class.to_s,
+          display_name: t.to_s
+        }
       end
     end
 

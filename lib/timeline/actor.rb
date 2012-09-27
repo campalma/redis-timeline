@@ -15,17 +15,19 @@ module Timeline
 
       private
         def timeline_options(options)
-          defaults = { list_name: "user:id:#{self.id}:activity", start: 0, end: 19 }
+          defaults = { list_name: "user:id:#{self.id}:network", start: 0, end: 19 }
           if options.is_a? Hash
             defaults.merge!(options)
           elsif options.is_a? Symbol
             case options
-            when :global
+            when :activity
               defaults.merge!(list_name: "global:activity")
-            when :posts
-              defaults.merge!(list_name: "user:id:#{self.id}:posts")
+            when :profile
+              defaults.merge!(list_name: "user:id:#{self.id}:profile")
             when :mentions
               defaults.merge!(list_name: "user:id:#{self.id}:mentions")
+            when :network
+              defaults.merge!(list_name: "user:id:#{self.id}:network")
             end
           end
         end
