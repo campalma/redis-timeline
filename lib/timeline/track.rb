@@ -84,6 +84,7 @@ module Timeline::Track
       activity_item[:verb] = "inv_"+ activity_item[:verb].to_s
       activity_item[:verb] = activity_item[:verb].to_sym
       activity_item[:target] = [options_for(@actor)]
+      @target = @target.to_set
       @target.each do |t|
         if t != @actor
           activity_item[:actor] = options_for(t)
