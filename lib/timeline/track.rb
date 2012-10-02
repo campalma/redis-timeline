@@ -17,6 +17,7 @@ module Timeline::Track
       @followers ||= :followers
       @extra_fields = options.delete :extra_fields
       @mentionable = options.delete :mentionable
+      @notificate = options.delete :notificate
 
       method_name = "track_#{@name}_after_#{@callback}".to_sym
       define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, extra_fields: @extra_fields, verb: name, mentionable: @mentionable
@@ -88,6 +89,7 @@ module Timeline::Track
           activity_item[:actor] = options_for(t)
           add_activity_by_user(t.id, activity_item)
           add_activity_to_user(t.id, activity_item)
+
         end
       end
     end
