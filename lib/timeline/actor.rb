@@ -13,6 +13,20 @@ module Timeline
         []
       end
 
+      def read_timeline(type, start = 0, stop = 19 )
+        Timeline.redis.lrange("user:id:#{self.id}:#{type}", start, stop).map do |item|
+          ::Timeline::Activity.new ::Timeline.decode(item)
+        end
+      end
+
+      def read_event_timeline(type, start = 0, stop = 19)
+        return Timeline.redis.lrange "event:id:#{event_id}:#{type}", start, stop
+      end
+      
+      def delete_timeline(type)
+        Timeline.redis.del "user:id:#{self.id}:#{type}"
+      end
+
       private
         def timeline_options(options)
           defaults = { list_name: "user:id:#{self.id}:network", start: 0, end: 19 }
