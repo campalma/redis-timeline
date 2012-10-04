@@ -67,9 +67,10 @@ module Timeline::Track
       add_activity_to_followers(activity_item) if @followers.any?
       add_activity_to_targets(activity_item) if @target.any?
 
-      if @object_double_entry != nil and @object_double_entry
-        add_activity_to_object_and_notify(activity_item)
-      end
+      ## Para notificacion de eventos! ##
+      # if @object_double_entry != nil and @object_double_entry
+      #   add_activity_to_object_and_notify(activity_item)
+      # end
     end
 
     def add_activity_by_user(user_id, activity_item)
