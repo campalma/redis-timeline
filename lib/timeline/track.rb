@@ -20,11 +20,11 @@ module Timeline::Track
       @notificate = options.delete :notificate
       @object_double_entry = options.delete :object_double_entry
 
-      # method_name = "track_#{@name}_after_#{@callback}".to_sym
-      # define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, extra_fields: @extra_fields, verb: name, mentionable: @mentionable, notificate: @notificate, object_double_entry: @object_double_entry 
+      method_name = "track_#{@name}_after_#{@callback}".to_sym
+      define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, extra_fields: @extra_fields, verb: name, mentionable: @mentionable, notificate: @notificate, object_double_entry: @object_double_entry 
 
 
-      # send "after_#{@callback}".to_sym, method_name, if: options.delete(:if)
+      send "after_#{@callback}".to_sym, method_name, if: options.delete(:if)
     end
 
 
