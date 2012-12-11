@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.email       = ["felixclack@gmail.com"]
   s.homepage    = "http://felixclack.github.com/redis-timeline"
   s.summary     = "Redis backed timeline for your activity feeds."
-  s.description = ""
+  s.description = "hola"
 
   s.files = Dir["{app,config,db,lib}/**/*"] + ["MIT-LICENSE", "Rakefile", "README.md"]
   s.test_files = Dir["spec/**/*"]
