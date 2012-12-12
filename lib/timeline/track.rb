@@ -31,7 +31,7 @@ module Timeline::Track
     private
       def define_activity_method(method_name, options={})
         define_method method_name do
-          puts "TRACK:"+method_name.to_s
+          puts "TRACK: "+method_name.to_s
           @actor = send(options[:actor])
           @fields_for = {}
           @object = set_object(options[:object])
@@ -44,9 +44,12 @@ module Timeline::Track
           @mentionable = options[:mentionable]
           @notificate = options[:notificate]
           @object_double_entry = options[:object_double_entry]
-          Thread.new{
+
+          begin
             add_activity activity(verb: options[:verb])
-          }
+          rescue
+            puts "REDIS ERROR"
+          end
         end
       end
   end
