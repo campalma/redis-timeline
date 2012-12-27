@@ -18,10 +18,12 @@ module Timeline::Track
       @extra_fields = options.delete :extra_fields
       @mentionable = options.delete :mentionable
       @notificate = options.delete :notificate
+      @global = options.delete :global
+      @only_global = options.delete :only_global
       @object_double_entry = options.delete :object_double_entry
 
       method_name = "track_#{@name}_after_#{@callback}".to_sym
-      define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, extra_fields: @extra_fields, verb: name, mentionable: @mentionable, notificate: @notificate, object_double_entry: @object_double_entry 
+      define_activity_method method_name, actor: @actor, object: @object, target: @target, followers: @followers, extra_fields: @extra_fields, verb: name, mentionable: @mentionable, notificate: @notificate, object_double_entry: @object_double_entry, global: @global, only_global: @only_global 
 
 
       send "after_#{@callback}".to_sym, method_name, if: options.delete(:if)
@@ -32,24 +34,31 @@ module Timeline::Track
       def define_activity_method(method_name, options={})
         define_method method_name do
           puts "TRACK: "+method_name.to_s
-          @actor = send(options[:actor])
+          @actor      = send(options[:actor])
           @fields_for = {}
-          @object = set_object(options[:object])
-          @target = send(options[:target].to_sym)
-          unless(@target.respond_to?(:length))
+          @object     = set_object(options[:object])
+          unless options[:target].nil?
+            @target     = send(options[:target].to_sym)
+          end
+
+          if not (@target.nil? or @target.respond_to?(:length)) 
             @target = [@target]
           end
-          @extra_fields = options[:extra_fields]
-          @followers = send(options[:followers].to_sym)
-          @mentionable = options[:mentionable]
-          @notificate = options[:notificate]
-          @object_double_entry = options[:object_double_entry]
-
-          begin
-            add_activity activity(verb: options[:verb])
-          rescue
-            puts "REDIS ERROR"
+          @extra_fields        = options[:extra_fields]
+          unless options[:followers].nil?
+            @followers           = send(options[:followers].to_sym)
           end
+          @mentionable         = options[:mentionable]
+          @notificate          = options[:notificate]
+          @object_double_entry = options[:object_double_entry]
+          @global              = options[:global]
+          @only_global         = options[:only_global]
+
+          # begin
+          add_activity activity(verb: options[:verb])
+          # rescue 
+          #   puts "REDIS ERROR"
+          # end
         end
       end
   end
@@ -66,17 +75,28 @@ module Timeline::Track
     end
 
     def add_activity(activity_item)
-      redis_add "global:activity", activity_item
-      add_activity_to_user(activity_item[:actor][:id], activity_item)
-      add_activity_by_user(activity_item[:actor][:id], activity_item)
-      add_mentions(activity_item)
-      add_activity_to_followers(activity_item) if @followers.any?
-      add_activity_to_targets(activity_item) if @target.any?
+      if @only_global || @global
+        add_activity_to_global(activity_item)
+      end
+      
+      unless @only_global
+        add_activity_to_user(activity_item[:actor][:id], activity_item)
+        add_activity_by_user(activity_item[:actor][:id], activity_item)
+        add_mentions(activity_item)
+        add_activity_to_followers(activity_item) if @followers.any?
+        add_activity_to_targets(activity_item) if @target.any?
 
-      ## Para notificacion de eventos! ##
-      # if @object_double_entry != nil and @object_double_entry
-      #   add_activity_to_object_and_notify(activity_item)
-      # end
+        ## Para notificacion de eventos! ##
+        # if @object_double_entry != nil and @object_double_entry
+        #   add_activity_to_object_and_notify(activity_item)
+        # end
+
+      end
+    end
+
+    def add_activity_to_global(activity_item)
+      redis_add "global:activity", activity_item 
+      NotificationsManager.send_action_notification(::Timeline::Activity.new activity_item)
     end
 
     def add_activity_by_user(user_id, activity_item)
@@ -103,7 +123,7 @@ module Timeline::Track
       object_id = object.id
       redis_add "user:id:#{object_id}:notifications", activity_item
       redis_add "user:id:#{object_id}:notifications_new", activity_item
-      
+
       object.notificate(redis_read("user:id:#{object_id}:notifications_new"))
     end
 
@@ -171,12 +191,16 @@ module Timeline::Track
     end
 
     def options_for_targets(targets)
-      targets.collect do |t|
-        {
-          id: t.id,
-          class: t.class.to_s,
-          display_name: t.to_s
-        }
+      if targets.nil?
+        return nil
+      else
+        targets.collect do |t|
+          {
+            id: t.id,
+            class: t.class.to_s,
+            display_name: t.to_s
+          }
+        end
       end
     end
 
